@@ -1,1 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Bug Hunter 🕷️💖</title>
+    <style>
+        /* 1. VISUALS: THE OMBRE BACKGROUND */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Stops scrolling */
+            /* Gradient: Black (top) to Lilac (bottom) */
+            background: linear-gradient(to bottom, #000000 0%, #C8A2C8 100%);
+            font-family: 'Courier New', Courier, monospace; /* Coder font */
+            color: white;
+            user-select: none; /* Stops text selection when clicking */
+        }
 
+        /* 2. UI ELEMENTS (SCORE AND TIMER) */
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            font-size: 20px;
+            background: rgba(0,0,0,0.5); /* Semi-transparent black box */
+            padding: 15px;
+            border-radius: 10px;
+            pointer-events: none; /* Clicks pass through the UI to game */
+        }
+
+        /* 3. GAME OBJECTS (HEARTS AND SPIDERS) */
+        .object {
+            position: absolute;
+            font-size: 40px; /* Size of the emoji */
+            cursor: pointer;
+            transition: transform 0.1s ease-out; /* Little pop animation */
+            user-select: none;
+            /* Center the text (emoji) relative to its container */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 50px;
+            height: 50px;
+        }
+
+        .object:active {
+            transform: scale(1.3); /* Cutesy pop when clicked */
+        }
+
+        /* 4. GAME OVER SCREEN */
+        #game-over {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            text-align: center;
+        }
+
+        #final-msg { font-size: 30px; margin-top: 20px; color: #C8A2C8; }
+        #heart-count { color: #FF69B4; font-weight: bold; }
+
+        /* A simple button to start the game/audio */
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #C8A2C8;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', sans-serif;
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bg-music" loop>
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="start-screen">
+        <button onclick="startGame()">Start Birthday Protocol 💖🕷️</button>
+    </div>
+
+    <div id="ui">
+        Time: <span id="timer">45</span>s<br>
+        Hearts: <span id="score">0</span> / 27
+    </div>
+
+    <div id="game-over">
+        <h1 id="end-title">System Status: Game Over</h1>
+        <div id="final-msg">You caught <span id="heart-count">0</span> hearts!</div>
+        <p>Happy Birthday to the best engineer 💖</p>
+    </div>
+
+    <script>
+        // 6. GAME LOGIC (The actual "business rules")
+
+        let score = 0;
+        let timeLeft = 45; // 45 second maximum
+        let gameActive = false;
+        let gameInterval;
+        let timerInterval;
+
+        const maxHearts = 27; // Winning condition
+
+        const music = document.getElementById('bg-music');
+        const uiTimer = document.getElementById('timer');
+        const uiScore = document.getElementById('score');
+        const gameOverScreen = document.getElementById('game-over');
+        const startScreen = document.getElementById('start-screen');
+        const finalHeartCount = document.getElementById('heart-count');
+
+        // This runs when he clicks the start button
+        function startGame() {
+            startScreen.style.display = 'none';
+            gameActive = true;
+            music.play(); // Start the subtle music
+
+            // Start the main loop (creates a new object every 0.6 seconds)
+            gameInterval = setInterval(createFallingObject, 600);
+            
+            // Start the countdown timer
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // The countdown timer logic
+        function updateTimer() {
+            timeLeft--;
+            uiTimer.innerText = timeLeft;
+
+            if (timeLeft <= 0) {
+                endGame("System Timeout: Time is Up!");
+            }
+        }
+
+        // Logic to create either a heart or a spider
+        function createFallingObject() {
+            if (!gameActive) return;
+
+            const obj = document.createElement('div');
+            obj.classList.add('object');
+
+            // 70% chance of a heart, 30% chance of a spider (make spiders common!)
+            const isHeart = Math.random() > 0.3; 
+            obj.innerText = isHeart ? '💖' : '🕷️';
+            obj.dataset.type = isHeart ? 'heart' : 'spider';
+
+            // Set random horizontal position
+            obj.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+            // Start above the screen
+            obj.style.top = '-60px';
+
+            // Add the click logic
+            obj.onclick = function() {
+                if (!gameActive) return;
+
+                if (this.dataset.type === 'heart') {
+                    score++;
+                    uiScore.innerText = score;
+                    this.remove(); // Remove heart when clicked
+
+                    // Check if he hit the 27 heart limit
+                    if (score >= maxHearts) {
+                        endGame("Objective Complete: You Got Them All!");
+                    }
+                } else {
+                    // HE CLICKED A SPIDER! GAME OVER!
+                    endGame("CRITICAL ERROR: Spider Detected!");
+                }
+            };
+
+            document.body.appendChild(obj);
+
+            // Animate the object falling down
+            let topPos = -60;
+            let speed = Math.random() * 3 + 2; // Random speed (2px to 5px per frame)
+
+            function fall() {
+                if (!gameActive) {
+                    obj.remove(); // Clean up if game is over
+                    return;
+                }
+
+                topPos += speed;
+                obj.style.top = topPos + 'px';
+
+                // If it falls off the bottom of the screen, remove it
+                if (topPos > window.innerHeight) {
+                    obj.remove();
+                } else {
+                    requestAnimationFrame(fall); // Keep falling
+                }
+            }
+            fall(); // Start the fall animation
+        }
+
+        function endGame(title) {
+            gameActive = false;
+            clearInterval(gameInterval);
+            clearInterval(timerInterval);
+            music.pause(); // Stop the music
+
+            // Show the game over screen
+            gameOverScreen.style.display = 'flex';
+            document.getElementById('end-title').innerText = title;
+            finalHeartCount.innerText = score;
+        }
+    </script>
+</body>
+</html>
